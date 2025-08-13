@@ -1,0 +1,27 @@
+{
+  "name": "filaforge/terminal-console",
+  "description": "Terminal Console plugin: run allowlisted commands from a Filament page",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "filament/filament": "^4.0",
+    "laravel/framework": "^12.0",
+    "symfony/process": "^7.0",
+    "spatie/laravel-package-tools": "^1.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Filaforge\\TerminalConsole\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Filaforge\\TerminalConsole\\Providers\\TerminalConsoleServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

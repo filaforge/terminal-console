@@ -3,6 +3,15 @@
   "description": "Terminal Console plugin: run allowlisted commands from a Filament page",
   "type": "library",
   "license": "MIT",
+  "keywords": ["Laravel", "Filament", "Platform"],
+  "homepage": "https://github.com/filaforge",
+  "authors": [
+    { "name": "Filaforge" }
+  ],
+  "support": {
+    "email": "filaforger@gmail.com",
+    "source": "https://github.com/filaforge"
+  },
   "require": {
   "php": ">=8.1",
   "filament/filament": "^4.0",

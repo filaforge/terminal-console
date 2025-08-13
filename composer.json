@@ -4,13 +4,13 @@
   "type": "library",
   "license": "MIT",
   "keywords": ["Laravel", "Filament", "Platform"],
-  "homepage": "https://github.com/filaforge",
+  "homepage": "https://github.com/filaforge/terminal-console",
   "authors": [
     { "name": "Filaforge" }
   ],
   "support": {
     "email": "filaforger@gmail.com",
-    "source": "https://github.com/filaforge"
+  "source": "https://github.com/filaforge/terminal-console"
   },
   "require": {
   "php": ">=8.1",

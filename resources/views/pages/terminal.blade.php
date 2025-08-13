@@ -230,22 +230,17 @@
                 <div
                     id="terminal"
                     wire:ignore
-                    x-data="{
-                        livewireComponent: null,
-                        init() {
-                            this.livewireComponent = @this;
-                        }
-                    }"
+                    x-data="{}"
                     x-init="
-                        // Store livewire component reference for global access
-                        window.currentLivewireComponent = livewireComponent;
+                        // Get the livewire component and pass it directly to init
+                        livewireComponent = @this;
                         
                         // Retry boot until the global initializer is ready (handles SPA/nav timing)
                         (() => {
                             let tries = 0;
                             const boot = () => {
                                 if (window.FilaTerminal && window.FilaTerminal.init) {
-                                    window.FilaTerminal.init($el);
+                                    window.FilaTerminal.init($el, livewireComponent);
                                 } else if (tries++ < 40) { // ~2s total
                                     setTimeout(boot, 50);
                                 }
@@ -309,10 +304,13 @@
                 document.addEventListener('livewire:init', attach, { once: true });
             }
 
-            function init(elOrSelector) {
+            function init(elOrSelector, livewireComponent) {
                 const termEl = typeof elOrSelector === 'string' ? document.querySelector(elOrSelector) : elOrSelector;
                 if (!termEl) return;
                 if (termEl.dataset.initialized === '1' && termEl._terminal) return;
+
+                // Store the livewire component for this terminal instance
+                const livewire = livewireComponent;
 
                 const Terminal = window.Terminal;
                 const FitAddon = window.FitAddon ? window.FitAddon.FitAddon : window.FitAddonAddonFit?.FitAddon;
@@ -430,15 +428,17 @@
                             state.historyIndex = -1;
                             terminal.writeln('');
                             try {
-                                const livewire = window.currentLivewireComponent;
                                 if (!livewire) {
                                     terminal.writeln('\x1b[31mError: Livewire component not available\x1b[0m');
                                     state.showPrompt();
                                     return;
                                 }
-                                livewire.set('data.command', command);
-                                await livewire.run();
+                                
+                                // Use the Livewire wire directive to call component methods
+                                await livewire.call('$set', 'data.command', command);
+                                await livewire.call('run');
                             } catch (error) {
+                                console.error('Terminal command error:', error);
                                 terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
                                 state.showPrompt();
                             }
@@ -454,9 +454,8 @@
                         (async () => {
                             if (!state.currentCommand.trim()) return;
                             try {
-                                const livewire = window.currentLivewireComponent;
                                 if (!livewire) return;
-                                const suggestions = await livewire.getTabCompletion(state.currentCommand);
+                                const suggestions = await livewire.call('getTabCompletion', state.currentCommand);
                                 if (suggestions.length === 1) {
                                     const parts = state.currentCommand.split(' ');
                                     parts[parts.length - 1] = suggestions[0];
@@ -468,7 +467,9 @@
                                     state.showPrompt();
                                     terminal.write(state.currentCommand);
                                 }
-                            } catch (e) { console.error('Tab completion error:', e); }
+                            } catch (e) { 
+                                console.error('Tab completion error:', e); 
+                            }
                         })();
                     } else if (domEvent.keyCode === 38) { // Up
                         if (state.commandHistory.length > 0) {

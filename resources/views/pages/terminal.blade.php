@@ -230,8 +230,16 @@
                 <div
                     id="terminal"
                     wire:ignore
-                    x-data
+                    x-data="{
+                        livewireComponent: null,
+                        init() {
+                            this.livewireComponent = @this;
+                        }
+                    }"
                     x-init="
+                        // Store livewire component reference for global access
+                        window.currentLivewireComponent = livewireComponent;
+                        
                         // Retry boot until the global initializer is ready (handles SPA/nav timing)
                         (() => {
                             let tries = 0;
@@ -422,10 +430,17 @@
                             state.historyIndex = -1;
                             terminal.writeln('');
                             try {
-                                @this.set('data.command', command);
-                                await @this.run();
+                                const livewire = window.currentLivewireComponent;
+                                if (!livewire) {
+                                    terminal.writeln('\x1b[31mError: Livewire component not available\x1b[0m');
+                                    state.showPrompt();
+                                    return;
+                                }
+                                livewire.set('data.command', command);
+                                await livewire.run();
                             } catch (error) {
                                 terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+                                state.showPrompt();
                             }
                             state.currentCommand = '';
                         })();
@@ -439,7 +454,9 @@
                         (async () => {
                             if (!state.currentCommand.trim()) return;
                             try {
-                                const suggestions = await @this.getTabCompletion(state.currentCommand);
+                                const livewire = window.currentLivewireComponent;
+                                if (!livewire) return;
+                                const suggestions = await livewire.getTabCompletion(state.currentCommand);
                                 if (suggestions.length === 1) {
                                     const parts = state.currentCommand.split(' ');
                                     parts[parts.length - 1] = suggestions[0];

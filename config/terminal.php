@@ -29,6 +29,7 @@ return [
         'du',
         'ps',
         'uname',
+        'npm',
     ],
 
     // Working directory and timeout (seconds)

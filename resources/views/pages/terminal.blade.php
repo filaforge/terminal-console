@@ -227,7 +227,26 @@
                 <!-- No internal header; relying on Filament section wrapper only -->
 
                 <!-- Xterm.js terminal container -->
-                <div id="terminal" wire:ignore style="height: 60vh;"></div>
+                <div
+                    id="terminal"
+                    wire:ignore
+                    x-data
+                    x-init="
+                        // Retry boot until the global initializer is ready (handles SPA/nav timing)
+                        (() => {
+                            let tries = 0;
+                            const boot = () => {
+                                if (window.FilaTerminal && window.FilaTerminal.init) {
+                                    window.FilaTerminal.init($el);
+                                } else if (tries++ < 40) { // ~2s total
+                                    setTimeout(boot, 50);
+                                }
+                            };
+                            boot();
+                        })()
+                    "
+                    style="height: 60vh;"
+                ></div>
             </div>
         </x-filament::section>
 
@@ -235,257 +254,260 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            function initTerminal() {
-                const termEl = document.getElementById('terminal');
-                if (!termEl || termEl.dataset.initialized === '1') {
-                    return;
-                }
-                termEl.dataset.initialized = '1';
+        // Global singleton so we can init reliably on SPA navigations and only attach listeners once
+        window.FilaTerminal = window.FilaTerminal || (function () {
+            let listenersAttached = false;
+            let current = null; // { terminal, termEl, fitAddon, state }
 
-                // Initialize Xterm.js terminal
+            function attachGlobalListeners() {
+                if (listenersAttached) return;
+                listenersAttached = true;
+
+                // Livewire may already be initialized; attach immediately if available, otherwise on init
+                const attach = () => {
+                    if (!window.Livewire) return;
+
+                    window.Livewire.on('terminal.output', (payload) => {
+                        if (!current) return;
+                        const { terminal, state } = current;
+                        const { command, output, path } = payload || {};
+
+                        if (command) {
+                            terminal.writeln(`$ ${command}`);
+                        }
+                        if (typeof output === 'string' && output.length > 0) {
+                            const text = (output ?? '').toString();
+                            const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+                            terminal.write(normalized);
+                            if (!output.endsWith('\n') && !output.endsWith('\r')) {
+                                terminal.write('\r\n');
+                            }
+                        }
+                        if (path) state.currentPath = path;
+                        state.showPrompt();
+                    });
+
+                    window.Livewire.on('terminal.clear', (payload) => {
+                        if (!current) return;
+                        const { terminal, state } = current;
+                        const { path } = payload || {};
+                        terminal.clear();
+                        if (path) state.currentPath = path;
+                        state.showPrompt();
+                    });
+                };
+
+                if (window.Livewire) attach();
+                document.addEventListener('livewire:init', attach, { once: true });
+            }
+
+            function init(elOrSelector) {
+                const termEl = typeof elOrSelector === 'string' ? document.querySelector(elOrSelector) : elOrSelector;
+                if (!termEl) return;
+                if (termEl.dataset.initialized === '1' && termEl._terminal) return;
+
                 const Terminal = window.Terminal;
                 const FitAddon = window.FitAddon ? window.FitAddon.FitAddon : window.FitAddonAddonFit?.FitAddon;
                 const WebLinksAddon = window.WebLinksAddon ? window.WebLinksAddon.WebLinksAddon : window.WebLinksAddonAddon?.WebLinksAddon;
+                if (!Terminal) {
+                    // Assets not ready yet, retry shortly without marking initialized
+                    setTimeout(() => init(termEl), 50);
+                    return;
+                }
 
                 const terminal = new Terminal({
-                theme: {
-                    background: 'transparent',
-                    foreground: '#f8f8f2',
-                    cursor: '#58a6ff',
-                    cursorAccent: '#58a6ff',
-                    selectionBackground: '#44475a',
-                    black: '#21222c',
-                    red: '#ff5555',
-                    green: '#50fa7b',
-                    yellow: '#f1fa8c',
-                    blue: '#bd93f9',
-                    magenta: '#ff79c6',
-                    cyan: '#8be9fd',
-                    white: '#f8f8f2',
-                    brightBlack: '#6272a4',
-                    brightRed: '#ff6e6e',
-                    brightGreen: '#69ff94',
-                    brightYellow: '#ffffa5',
-                    brightBlue: '#d6acff',
-                    brightMagenta: '#ff92df',
-                    brightCyan: '#a4ffff',
-                    brightWhite: '#ffffff'
-                },
-                fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
-                fontSize: 14,
-                lineHeight: 1.4,
-                cursorBlink: true,
-                cursorStyle: 'block',
-                scrollback: 1000,
-                tabStopWidth: 4
+                    theme: {
+                        background: 'transparent',
+                        foreground: '#f8f8f2',
+                        cursor: '#58a6ff',
+                        cursorAccent: '#58a6ff',
+                        selectionBackground: '#44475a',
+                        black: '#21222c',
+                        red: '#ff5555',
+                        green: '#50fa7b',
+                        yellow: '#f1fa8c',
+                        blue: '#bd93f9',
+                        magenta: '#ff79c6',
+                        cyan: '#8be9fd',
+                        white: '#f8f8f2',
+                        brightBlack: '#6272a4',
+                        brightRed: '#ff6e6e',
+                        brightGreen: '#69ff94',
+                        brightYellow: '#ffffa5',
+                        brightBlue: '#d6acff',
+                        brightMagenta: '#ff92df',
+                        brightCyan: '#a4ffff',
+                        brightWhite: '#ffffff'
+                    },
+                    fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+                    fontSize: 14,
+                    lineHeight: 1.4,
+                    cursorBlink: true,
+                    cursorStyle: 'block',
+                    scrollback: 1000,
+                    tabStopWidth: 4
                 });
 
                 const fitAddon = FitAddon ? new FitAddon() : null;
                 const webLinksAddon = WebLinksAddon ? new WebLinksAddon() : null;
-
                 if (fitAddon) terminal.loadAddon(fitAddon);
                 if (webLinksAddon) terminal.loadAddon(webLinksAddon);
 
                 terminal.open(termEl);
                 if (fitAddon) fitAddon.fit();
+                termEl._terminal = terminal;
+                termEl.dataset.initialized = '1';
 
-                // Terminal state
-                let currentCommand = '';
-                let commandHistory = [];
-                let historyIndex = -1;
-                let currentPath = '{{ $this->getCurrentPath() }}';
+                // Terminal state/functions we keep on the instance
+                let state = {
+                    currentCommand: '',
+                    commandHistory: [],
+                    historyIndex: -1,
+                    currentPath: '{{ $this->getCurrentPath() }}',
+                    showPrompt: () => {
+                        terminal.write(`\x1b[34mfilaforge@terminal\x1b[0m:\x1b[36m${state.currentPath}\x1b[0m$ `);
+                    },
+                    clearCurrentLine: () => {
+                        terminal.write('\x1b[2K\x1b[0G');
+                    },
+                    refreshPrompt: () => {
+                        state.clearCurrentLine();
+                        state.showPrompt();
+                        terminal.write(state.currentCommand);
+                    },
+                };
 
-                // Display welcome message (ensure after initial fit)
                 const writeWelcome = () => {
                     terminal.writeln('\x1b[36mWelcome to Filament Terminal\x1b[0m');
                     terminal.writeln('Type commands here. Tab = completion, ↑/↓ = history, Ctrl+L = clear, Ctrl+C = cancel');
                     terminal.writeln('');
-                    showPrompt();
+                    state.showPrompt();
                 };
-                if (fitAddon) {
-                    requestAnimationFrame(() => setTimeout(writeWelcome, 0));
-                } else {
-                    writeWelcome();
-                }
 
-                // Auto-focus the terminal
-                setTimeout(() => {
-                    terminal.focus();
-                }, 150);
-
-                function showPrompt() {
-                    terminal.write(`\x1b[34mfilaforge@terminal\x1b[0m:\x1b[36m${currentPath}\x1b[0m$ `);
-                }
-
-                function clearCurrentLine() {
-                    terminal.write('\x1b[2K\x1b[0G');
-                }
-
-                function refreshPrompt() {
-                    clearCurrentLine();
-                    showPrompt();
-                    terminal.write(currentCommand);
-                }
-
-                async function executeCommand(command) {
-                if (!command.trim()) return;
-
-                // Add to history
-                if (commandHistory[commandHistory.length - 1] !== command) {
-                    commandHistory.push(command);
-                }
-                historyIndex = -1;
-
-                terminal.writeln('');
-
+                const needsWelcomeMessage = () => {
                     try {
-                        // Execute command via Livewire; output will arrive via event listener
-                        @this.set('data.command', command);
-                        await @this.run();
-                    } catch (error) {
-                        terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
-                    }
+                        if (!terminal || !terminal.buffer || !terminal.buffer.active) return true;
+                        const lineCount = terminal.buffer.active.length;
+                        if (lineCount === 0) return true;
+                        for (let i = 0; i < Math.min(lineCount, 5); i++) {
+                            const line = terminal.buffer.active.getLine(i);
+                            if (line && line.translateToString().trim()) return false;
+                        }
+                        return true;
+                    } catch (e) { return true; }
+                };
 
-                    currentCommand = '';
+                // Initial welcome/prompt
+                if (fitAddon) {
+                    requestAnimationFrame(() => setTimeout(() => {
+                        if (needsWelcomeMessage()) writeWelcome();
+                    }, 0));
+                } else {
+                    if (needsWelcomeMessage()) writeWelcome();
                 }
 
-                async function handleTabCompletion() {
-                if (!currentCommand.trim()) return;
+                // Focus shortly after mount
+                setTimeout(() => terminal.focus(), 150);
 
-                try {
-                    const suggestions = await @this.getTabCompletion(currentCommand);
-
-                    if (suggestions.length === 1) {
-                        // Single match - auto complete
-                        const parts = currentCommand.split(' ');
-                        parts[parts.length - 1] = suggestions[0];
-                        currentCommand = parts.join(' ');
-                        refreshPrompt();
-                    } else if (suggestions.length > 1) {
-                        // Multiple matches - show options
-                        terminal.writeln('');
-                        terminal.writeln(suggestions.join('    '));
-                        showPrompt();
-                        terminal.write(currentCommand);
-                    }
-                    } catch (error) {
-                        console.error('Tab completion error:', error);
-                    }
-                }
-
-            // Handle keyboard input
+                // Input handling
                 terminal.onKey(({ key, domEvent }) => {
-                const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
-
-                if (domEvent.keyCode === 13) { // Enter
-                    executeCommand(currentCommand);
-                } else if (domEvent.keyCode === 8) { // Backspace
-                    if (currentCommand.length > 0) {
-                        currentCommand = currentCommand.slice(0, -1);
-                        terminal.write('\b \b');
-                    }
-                } else if (domEvent.keyCode === 9) { // Tab
-                    domEvent.preventDefault();
-                    handleTabCompletion();
-                } else if (domEvent.keyCode === 38) { // Arrow Up
-                    if (commandHistory.length > 0) {
-                        if (historyIndex === -1) {
-                            historyIndex = commandHistory.length - 1;
-                        } else if (historyIndex > 0) {
-                            historyIndex--;
+                    const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
+                    if (domEvent.keyCode === 13) { // Enter
+                        (async () => {
+                            const command = state.currentCommand;
+                            if (!command.trim()) return;
+                            if (state.commandHistory[state.commandHistory.length - 1] !== command) {
+                                state.commandHistory.push(command);
+                            }
+                            state.historyIndex = -1;
+                            terminal.writeln('');
+                            try {
+                                @this.set('data.command', command);
+                                await @this.run();
+                            } catch (error) {
+                                terminal.writeln(`\x1b[31mError: ${error.message}\x1b[0m`);
+                            }
+                            state.currentCommand = '';
+                        })();
+                    } else if (domEvent.keyCode === 8) { // Backspace
+                        if (state.currentCommand.length > 0) {
+                            state.currentCommand = state.currentCommand.slice(0, -1);
+                            terminal.write('\b \b');
                         }
-                        currentCommand = commandHistory[historyIndex] || '';
-                        refreshPrompt();
-                    }
-                } else if (domEvent.keyCode === 40) { // Arrow Down
-                    if (historyIndex >= 0) {
-                        if (historyIndex < commandHistory.length - 1) {
-                            historyIndex++;
-                            currentCommand = commandHistory[historyIndex];
-                        } else {
-                            historyIndex = -1;
-                            currentCommand = '';
+                    } else if (domEvent.keyCode === 9) { // Tab
+                        domEvent.preventDefault();
+                        (async () => {
+                            if (!state.currentCommand.trim()) return;
+                            try {
+                                const suggestions = await @this.getTabCompletion(state.currentCommand);
+                                if (suggestions.length === 1) {
+                                    const parts = state.currentCommand.split(' ');
+                                    parts[parts.length - 1] = suggestions[0];
+                                    state.currentCommand = parts.join(' ');
+                                    state.refreshPrompt();
+                                } else if (suggestions.length > 1) {
+                                    terminal.writeln('');
+                                    terminal.writeln(suggestions.join('    '));
+                                    state.showPrompt();
+                                    terminal.write(state.currentCommand);
+                                }
+                            } catch (e) { console.error('Tab completion error:', e); }
+                        })();
+                    } else if (domEvent.keyCode === 38) { // Up
+                        if (state.commandHistory.length > 0) {
+                            if (state.historyIndex === -1) state.historyIndex = state.commandHistory.length - 1;
+                            else if (state.historyIndex > 0) state.historyIndex--;
+                            state.currentCommand = state.commandHistory[state.historyIndex] || '';
+                            state.refreshPrompt();
                         }
-                        refreshPrompt();
+                    } else if (domEvent.keyCode === 40) { // Down
+                        if (state.historyIndex >= 0) {
+                            if (state.historyIndex < state.commandHistory.length - 1) {
+                                state.historyIndex++;
+                                state.currentCommand = state.commandHistory[state.historyIndex];
+                            } else {
+                                state.historyIndex = -1;
+                                state.currentCommand = '';
+                            }
+                            state.refreshPrompt();
+                        }
+                    } else if (domEvent.keyCode === 67 && domEvent.ctrlKey) { // Ctrl+C
+                        terminal.writeln('^C');
+                        state.currentCommand = '';
+                        state.showPrompt();
+                    } else if (domEvent.keyCode === 76 && domEvent.ctrlKey) { // Ctrl+L
+                        terminal.clear();
+                        state.showPrompt();
+                    } else if (printable) {
+                        state.currentCommand += key;
+                        terminal.write(key);
                     }
-                } else if (domEvent.keyCode === 67 && domEvent.ctrlKey) { // Ctrl+C
-                    terminal.writeln('^C');
-                    currentCommand = '';
-                    showPrompt();
-                } else if (domEvent.keyCode === 76 && domEvent.ctrlKey) { // Ctrl+L
-                    terminal.clear();
-                    showPrompt();
-                } else if (printable) {
-                    currentCommand += key;
-                    terminal.write(key);
-                }
                 });
 
-                // Handle window resize
-                window.addEventListener('resize', () => {
-                    if (fitAddon) fitAddon.fit();
-                });
-
-                // Auto-resize when terminal becomes visible / layout changes
-                const resizeObserver = new ResizeObserver(() => {
-                    if (fitAddon) fitAddon.fit();
-                });
+                // Resize handling
+                window.addEventListener('resize', () => { if (fitAddon) fitAddon.fit(); });
+                const resizeObserver = new ResizeObserver(() => { if (fitAddon) fitAddon.fit(); });
                 resizeObserver.observe(termEl);
                 const containerEl = document.querySelector('.fi-terminal-container');
                 if (containerEl) resizeObserver.observe(containerEl);
-
                 const refit = () => { if (fitAddon) { try { fitAddon.fit(); } catch (e) {} } };
-                // Refit on load, navigation, and after fonts load
-                window.addEventListener('load', () => requestAnimationFrame(refit));
-                document.addEventListener('filament:navigated', () => setTimeout(refit, 0));
-                document.addEventListener('livewire:navigated', () => setTimeout(refit, 0));
                 if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
 
-                // Make terminal clickable to focus
-                termEl.addEventListener('click', () => {
-                    terminal.focus();
-                });
+                termEl.addEventListener('click', () => terminal.focus());
 
-                // Utility to write output preserving line breaks and ANSI codes
-                function writeOutput(raw) {
-                    const text = (raw ?? '').toString();
-                    // Normalize newlines for xterm
-                    const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
-                    terminal.write(normalized);
-                }
+                // Make this the current active terminal for global event handlers
+                current = { terminal, termEl, fitAddon, state };
 
-                // Listen for Livewire-dispatched output to sync terminal
-                document.addEventListener('livewire:init', () => {
-                    window.Livewire.on('terminal.output', (payload) => {
-                        const { command, output, exit, path } = payload || {};
-                        if (command) {
-                            terminal.writeln(`$ ${command}`);
-                        }
-                        if (typeof output === 'string' && output.length > 0) {
-                            writeOutput(output);
-                            // Ensure final newline
-                            if (!output.endsWith('\n') && !output.endsWith('\r')) {
-                                terminal.write('\r\n');
-                            }
-                        }
-                        if (path) currentPath = path;
-                        showPrompt();
-                    });
-
-                    window.Livewire.on('terminal.clear', (payload) => {
-                        const { path } = payload || {};
-                        terminal.clear();
-                        if (path) currentPath = path;
-                        showPrompt();
-                    });
-                });
+                // If Livewire is already ready, ensure welcome once more shortly after
+                setTimeout(() => {
+                    if (needsWelcomeMessage()) writeWelcome();
+                }, 100);
             }
 
-            // Initialize now and on SPA navigations
-            initTerminal();
-            document.addEventListener('filament:navigated', initTerminal);
-            document.addEventListener('livewire:navigated', initTerminal);
-        });
+            // Attach once
+            attachGlobalListeners();
+
+            return { init };
+        })();
     </script>
 </x-filament::page>

@@ -37,6 +37,19 @@ You can install the package via Composer:
 composer require filaforge/terminal-console
 ```
 
+### Publish & Migrate
+
+```bash
+# Publish configuration (optional)
+php artisan vendor:publish --tag="terminal-console-config"
+
+# Publish provider resources (assets, resources)
+php artisan vendor:publish --provider="Filaforge\\TerminalConsole\\Providers\\TerminalConsoleServiceProvider"
+
+# Run migrations (if using provided settings table)
+php artisan migrate
+```
+
 ## Quick Start
 
 1. **Register the plugin** in your Panel Provider (e.g., `AdminPanelProvider`):
@@ -52,6 +65,25 @@ public function panel(Panel $panel): Panel
             TerminalConsolePlugin::make(),
         ]);
 }
+```
+
+### Register Multiple Filaforge Plugins (example)
+
+```php
+->plugin(\Filaforge\DeepseekChat\Providers\DeepseekChatPanelPlugin::make())
+->plugin(\Filaforge\HuggingfaceChat\Providers\HfChatPanelPlugin::make())
+->plugin(\Filaforge\ChatAi\Providers\ChatAiPanelPlugin::make())
+->plugin(\Filaforge\UserManager\UserManagerPlugin::make())
+->plugin(\Filaforge\TerminalConsole\TerminalConsolePlugin::make())
+->plugin(\Filaforge\OpensourceChat\OpensourceChatPlugin::make())
+->plugin(\Filaforge\DatabaseViewer\DatabaseViewerPlugin::make())
+->plugin(\Filaforge\DatabaseQuery\DatabaseQueryPlugin::make())
+->plugin(\Filaforge\SystemPackages\SystemPackagesPlugin::make())
+->plugin(\Filaforge\TerminalConsole\TerminalConsolePlugin::make())
+->plugin(\Filaforge\ApiExplorer\ApiExplorerPlugin::make())
+->plugin(\Filaforge\SystemMonitor\SystemMonitorPlugin::make())
+->plugin(\Filaforge\HelloWidget\HelloWidgetPlugin::make())
+->plugin(\Filaforge\OllamaChat\Filament\OllamaChatPanelPlugin::make())
 ```
 
 2. **Publish the configuration** (optional):

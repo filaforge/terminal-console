@@ -1,0 +1,140 @@
+/*
+ |--------------------------------------------------------------------------
+ | Terminal Console Plugin CSS
+ |--------------------------------------------------------------------------
+ | Use this file to override or extend the terminal page styles.
+ | It's published to public/vendor/terminal-console/css/index.css.
+ */
+
+/* Consistent sizing for all preset buttons */
+.fi-preset-btn {
+	display: inline-grid;
+	grid-auto-flow: column;
+	align-items: center;
+	gap: 6px; /* ~gap-1.5 */
+	padding: 8px 12px; /* ~py-2 px-3 */
+	font-size: 14px; /* ~text-sm */
+	line-height: 20px;
+	height: 36px; /* uniform height */
+	border-radius: 8px; /* ~rounded-lg */
+	vertical-align: middle; /* align inline-grid buttons consistently */
+	box-sizing: border-box;
+	margin-top: 10px; /* requested top spacing */
+	margin-bottom: 10px; /* requested bottom spacing */
+	cursor: pointer; /* better UX for interactive buttons */
+}
+
+/* Subtle tone difference between categories and commands */
+.fi-preset-cat { background-color: #f8fafc !important; }
+.dark .fi-preset-cat { background-color: rgba(255,255,255,0.06) !important; }
+
+.fi-preset-cmd { background-color: #ffffff !important; }
+.dark .fi-preset-cmd { background-color: rgba(255,255,255,0.05) !important; }
+
+/* Extra vertical spacing between wrapped button rows
+	Note: spacing is primarily controlled via button margin-bottom now. */
+.fi-preset-rows { row-gap: 0; }
+
+/* Optional: tweak terminal container visuals with theme variables */
+.ff-terminal-console {
+	--terminal-bg: #ffffff;
+	--terminal-fg: #1e293b; /* slate-800 */
+	--terminal-cursor: #2563eb; /* blue-600 */
+	--terminal-border: #d0d7de; /* neutral border */
+}
+.dark .ff-terminal-console {
+	--terminal-bg: #0a0a0c; /* near-black neutral */
+	--terminal-fg: #ffffff; /* pure white for high contrast */
+	--terminal-cursor: #ffffff; /* white cursor */
+	--terminal-border: rgba(255,255,255,0.10);
+}
+/* Alternate dark mode attribute fallback */
+[data-theme='dark'] .ff-terminal-console, html[data-theme='dark'] .ff-terminal-console {
+	--terminal-bg: #0a0a0c;
+	--terminal-fg: #ffffff;
+	--terminal-cursor: #ffffff;
+	--terminal-border: rgba(255,255,255,0.10);
+}
+.fi-terminal-container { border-radius: 12px; background: var(--terminal-bg); border: 1px solid var(--terminal-border); }
+.dark .fi-terminal-container { background: var(--terminal-bg) !important; }
+[data-theme='dark'] .fi-terminal-container { background: var(--terminal-bg) !important; }
+.fi-terminal-container .xterm { background: var(--terminal-bg) !important; color: var(--terminal-fg) !important; }
+.dark .fi-terminal-container .xterm { background: var(--terminal-bg) !important; color: var(--terminal-fg) !important; }
+[data-theme='dark'] .fi-terminal-container .xterm { background: var(--terminal-bg) !important; color: var(--terminal-fg) !important; }
+/* Ensure internal xterm layers also honor colors */
+.ff-terminal-console .xterm-viewport,
+.ff-terminal-console .xterm-screen { background: var(--terminal-bg) !important; }
+.ff-terminal-console .xterm { transition: background-color .25s ease, color .25s ease; }
+/* Force inner text spans to adopt white foreground in dark mode */
+.dark .ff-terminal-console .xterm .xterm-rows,
+[data-theme='dark'] .ff-terminal-console .xterm .xterm-rows { color: var(--terminal-fg) !important; }
+
+/* Hide the Filament page header heading on this page */
+.ff-terminal-console .fi-header-heading,
+.ff-terminal-console .fi-header .fi-header-heading { display: none !important; }
+
+.action-console {
+    border-radius: 20px !important;
+    font-weight: bold !important;
+    /* This will now apply to ALL buttons */
+}
+
+/* Custom background styling for action command buttons */
+.ff-terminal-console { /* scoped CSS vars for easy future tweaks */
+	--terminal-action-bg: #f1f5f9; /* light slate-50/100 */
+	--terminal-action-bg-hover: #e2e8f0; /* light hover */
+	--terminal-action-border: #d0d7de; /* neutral border */
+	--terminal-action-text: #334155; /* slate-700 */
+}
+.dark .ff-terminal-console {
+	--terminal-action-bg: rgba(255,255,255,0.03); /* toned down */
+	--terminal-action-bg-hover: rgba(255,255,255,0.07);
+	--terminal-action-border: rgba(255,255,255,0.08);
+	--terminal-action-text: #d1d5db; /* gray-300 */
+}
+
+/* Override tailwind bg classes on command buttons */
+.action-console {
+	background: var(--terminal-action-bg) !important;
+	color: var(--terminal-action-text) !important;
+	border: 1px solid var(--terminal-action-border) !important;
+	font-weight: 500 !important; /* toned down */
+	border-radius: 10px !important; /* softer */
+	box-shadow: none !important; /* remove heavy emphasis */
+	transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.action-console:hover,
+.action-console:focus-visible {
+	background: var(--terminal-action-bg-hover) !important;
+	color: var(--terminal-action-text) !important;
+	border-color: var(--terminal-action-border) !important;
+}
+.action-console:active { filter: brightness(0.95); }
+.action-console[disabled],
+.action-console[aria-disabled='true'] {
+	opacity: .55;
+	cursor: not-allowed;
+	box-shadow: none;
+}
+
+/* Icon color customization */
+.ff-terminal-console {
+	--terminal-icon-color: #3b82f6; /* blue-500 */
+	--terminal-icon-color-hover: #60a5fa; /* sky-400 */
+}
+.dark .ff-terminal-console {
+	--terminal-icon-color: #9ca3af; /* gray-400 */
+	--terminal-icon-color-hover: #d1d5db; /* gray-300 */
+}
+.ff-terminal-console .fi-terminal-action-btn svg,
+.ff-terminal-console .fi-terminal-cat-btn svg,
+.ff-terminal-console .fi-terminal-cmd-btn svg {
+	color: var(--terminal-icon-color) !important;
+	stroke: var(--terminal-icon-color) !important;
+}
+.ff-terminal-console .fi-terminal-action-btn:hover svg,
+.ff-terminal-console .fi-terminal-cat-btn:hover svg,
+.ff-terminal-console .fi-terminal-cmd-btn:hover svg {
+	color: var(--terminal-icon-color-hover) !important;
+	stroke: var(--terminal-icon-color-hover) !important;
+}
